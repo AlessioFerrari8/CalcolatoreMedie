@@ -2,7 +2,7 @@ import json
 import re
 from datetime import datetime
 
-# === INPUT: la stringa originale (puoi sostituirla con un input() o leggere da file)
+# === INPUT: qui puoi incollare tutto il testo (anche con più mesi)
 testo = """
 Valutazioni giornaliere
 ottobre 2025
@@ -56,42 +56,48 @@ mer, 08/10
 SISTEMI E RETI
 scritto
 nove,75
+
 """
 
-# === Estrae il mese e la media generale
-righe = [r.strip() for r in testo.splitlines() if r.strip()]
-mese = righe[1]
-media_generale = float(righe[2].replace(',', '.'))
+# === Riconosce i blocchi per mese
+blocchi = re.split(r"Valutazioni giornaliere", testo)
+blocchi = [b.strip() for b in blocchi if b.strip()]
 
-# === Estrae i blocchi di voti
-pattern = re.compile(
-    r"([\d.,]+)\s+\n(\w{3}),\s*(\d{2}/\d{2})\s*\n([A-ZÀ-Ú\s]+)\n(\w+)\n([\w+.,]+)",
-    re.MULTILINE
-)
+# === Dizionario finale
+anno_completo = {}
 
-valutazioni = []
+for blocco in blocchi:
+    righe = [r.strip() for r in blocco.splitlines() if r.strip()]
+    if len(righe) < 3:
+        continue
 
-for voto_num, _, data, materia, tipologia, voto_testuale in pattern.findall(testo):
-    voto_num = float(voto_num.replace(',', '.'))
-    giorno, mese_num = map(int, data.split('/'))
-    data_iso = datetime(2025, mese_num, giorno).strftime("%Y-%m-%d")
-    valutazioni.append({
-        "data": data_iso,
-        "materia": materia.title().strip(),
-        "tipologia": tipologia.lower().strip(),
-        "voto_num": voto_num,
-        "voto_testuale": voto_testuale.strip()
-    })
+    mese_riga = righe[0]
+    media_mese = float(righe[1].replace(',', '.'))
+    pattern = re.compile(
+        r"([\d.,]+)\s+\n(\w{3}),\s*(\d{2}/\d{2})\s*\n([A-ZÀ-Ú\s]+)\n(\w+)\n([\w+.,]+)",
+        re.MULTILINE
+    )
 
-# === Struttura finale
-dati = {
-    "mese": mese,
-    "media_mese": media_generale,
-    "valutazioni": valutazioni
-}
+    valutazioni = []
+    for voto_num, _, data, materia, tipologia, voto_testuale in pattern.findall(blocco):
+        voto_num = float(voto_num.replace(',', '.'))
+        giorno, mese_num = map(int, data.split('/'))
+        data_iso = datetime(2025, mese_num, giorno).strftime("%Y-%m-%d")
+        valutazioni.append({
+            "data": data_iso,
+            "materia": materia.title().strip(),
+            "tipologia": tipologia.lower().strip(),
+            "voto_num": voto_num,
+            "voto_testuale": voto_testuale.strip()
+        })
 
-# === Salva in JSON
-with open("valutazioni_ottobre_2025.json", "w", encoding="utf-8") as f:
-    json.dump(dati, f, indent=4, ensure_ascii=False)
+    anno_completo[mese_riga] = {
+        "media_mese": media_mese,
+        "valutazioni": valutazioni
+    }
 
-print("✅ File 'valutazioni_ottobre_2025.json' creato con successo!")
+# === Salva tutto in JSON unico
+with open("valutazioni_2025.json", "w", encoding="utf-8") as f:
+    json.dump(anno_completo, f, indent=4, ensure_ascii=False)
+
+print("✅ File 'valutazioni_2025.json' creato con successo!")
