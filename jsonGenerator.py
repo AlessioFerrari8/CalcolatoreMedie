@@ -97,7 +97,7 @@ for blocco in blocchi:
     }
 
 # === Salva tutto in JSON unico
-with open("valutazioni_2025.json", "w", encoding="utf-8") as f:
+with open("valutazioni.json", "w", encoding="utf-8") as f:
     json.dump(anno_completo, f, indent=4, ensure_ascii=False)
 
-print("✅ File 'valutazioni_2025.json' creato con successo!")
+print("✅ File 'valutazioni.json' creato con successo!")

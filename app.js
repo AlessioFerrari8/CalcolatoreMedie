@@ -1,15 +1,28 @@
 function fetchValutazioni() {
-    fetch('user.json') // recuperiamo il file user.json --> come url usa il percorso relativo che include il nome del file
+    fetch('valutazioni.json') // Recupera il file valutazioni.json
         .then(response => {
-            console.log(`Risposta ricevuta: ${JSON.stringify(response, null, 2)}`);            
-            return response.json();
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json(); // Converte la risposta in JSON
         })
-        .then(user => {
-            console.log(JSON.stringify(user, null, 2));
+        .then(data => {
+            console.log("Dati ricevuti:", data);
+
+            // Estrai l'array delle valutazioni
+            const valutazioni = data["ottobre 2025"].valutazioni;
+
+            // Calcola la somma dei voti numerici
+            const sommaVoti = valutazioni.reduce((somma, valutazione) => somma + valutazione.voto_num, 0);
+
+            // Calcola la media
+            const mediaVoti = sommaVoti / valutazioni.length;
+
+            console.log(`La media generale dei voti è: ${mediaVoti.toFixed(2)}`);
         })
         .catch(error => {
-            console.warn("Error fetching user:", error);
+            console.error("Errore durante il fetch:", error);
         });
 }
 
-fetchUser();
+fetchValutazioni();
