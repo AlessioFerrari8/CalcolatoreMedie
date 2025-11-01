@@ -1,5 +1,7 @@
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DataService, Subject } from '../services/data.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-text-area',
@@ -9,64 +11,88 @@ import { FormsModule } from '@angular/forms';
   styleUrls: ['./text-area.css']
 })
 export class TextArea {
-  name: string = '';
-  marks: string = '';
+  rawData: string = '';
   jsonOutput: string = '';
+  subjects: Subject[] = [];
+
+  constructor(private dataService: DataService, private router: Router) {
+    this.subjects = this.dataService.getData();
+  }
 
   generateJSON() {
-    const testo = this.marks;
+    if (!this.rawData.trim()) {
+      alert('Per favore incolla i dati');
+      return;
+    }
 
-    // Divide il testo in blocchi per mese
-    const blocchi = testo
-      .split(/Valutazioni giornaliere/g)
-      .map(b => b.trim())
-      .filter(b => b.length > 0);
+    try {
+      // Parsa i dati grezzi
+      this.parseRawData(this.rawData);
 
-    const annoCompleto: any = {};
+      // Mostra il JSON
+      this.jsonOutput = JSON.stringify(this.subjects, null, 2);
 
-    blocchi.forEach(blocco => {
-      const righe = blocco
-        .split('\n')
-        .map(r => r.trim())
-        .filter(r => r.length > 0);
+      // Salva nel servizio
+      this.dataService.setData(this.subjects);
 
-      if (righe.length < 2) return;
+      console.log('✅ JSON generato:', this.subjects);
+    } catch (error) {
+      alert('Errore nel parsing dei dati: ' + error);
+      console.error(error);
+    }
+  }
 
-      const meseRiga = righe[0];
+  parseRawData(data: string) {
+    this.subjects = [];
+    const subjectsMap: { [key: string]: number[] } = {};
 
-      // Regex per riconoscere i blocchi dei voti
-      const pattern =
-        /([\d.,]+)\s*\n(\w{3}),\s*(\d{2}\/\d{2})\s*\n([A-ZÀ-Ú\s]+)\n(\w+)\n([\w+.,]+)/gmu;
+    // Regex pattern dal file Python: estrae voto, data, materia, tipologia, voto testuale
+    const pattern = /([\d.,]+)\s+\n(\w{3}),\s*(\d{2}\/\d{2})\s*\n([A-ZÀ-Ú\s]+)\n(\w+)\n([\w+.,]+)/gm;
 
-      const valutazioni: any[] = [];
-      let match;
+    let match;
+    while ((match = pattern.exec(data)) !== null) {
+      const votoNumStr = match[1];      // es: "8.25"
+      const giorno = match[3];          // es: "28/10"
+      const materia = match[4];         // es: "STORIA"
+      const tipologia = match[5];       // es: "orale"
+      const votoTestuale = match[6];    // es: "otto+"
 
-      while ((match = pattern.exec(blocco)) !== null) {
-        const [_, votoNumStr, , data, materia, tipologia, votoTestuale] = match;
-        const votoNum = parseFloat(votoNumStr.replace(',', '.'));
+      // Converti il voto a numero (sostituisci la virgola con il punto)
+      const votoNum = parseFloat(votoNumStr.replace(',', '.'));
 
-        const [giorno, meseNum] = data.split('/').map(x => parseInt(x, 10));
-        const dataIso = new Date(2025, meseNum - 1, giorno)
-          .toISOString()
-          .split('T')[0];
+      // Normalizza il nome della materia (title case)
+      const materiaNormalizzata = materia
+        .toLowerCase()
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+        .trim();
 
-        valutazioni.push({
-          data: dataIso,
-          materia: materia
-            .toLowerCase()
-            .replace(/\b\w/g, l => l.toUpperCase())
-            .trim(),
-          tipologia: tipologia.toLowerCase().trim(),
-          voto_num: votoNum,
-          voto_testuale: votoTestuale.trim(),
-        });
+      // Aggiungi il voto alla materia
+      if (!subjectsMap[materiaNormalizzata]) {
+        subjectsMap[materiaNormalizzata] = [];
       }
+      subjectsMap[materiaNormalizzata].push(votoNum);
 
-      annoCompleto[meseRiga] = valutazioni;
-    });
+      console.log(`✅ ${votoNum} - ${materiaNormalizzata} (${tipologia})`);
+    }
 
-    // Converti tutto in JSON leggibile
-    this.jsonOutput = JSON.stringify(annoCompleto, null, 2);
-    console.log('✅ JSON generato:', this.jsonOutput);
+    // Converti la map in array di Subject
+    for (const [name, marks] of Object.entries(subjectsMap)) {
+      this.subjects.push({
+        name: name.trim(),
+        marks: marks
+      });
+    }
+
+    console.log('📊 Materie elaborate:', this.subjects);
+  }
+
+  viewResults() {
+    if (this.subjects.length === 0) {
+      alert('Genera prima il JSON!');
+      return;
+    }
+    this.router.navigate(['/medie-calculator']);
   }
 }
